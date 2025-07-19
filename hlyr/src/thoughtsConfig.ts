@@ -4,12 +4,20 @@ import os from 'os'
 import { execSync } from 'child_process'
 import { ConfigResolver, saveConfigFile } from './config.js'
 
+export interface ThoughtsContext {
+  name: string
+  remoteUrl: string
+  remoteName: string // e.g., 'origin', 'personal', 'work'
+}
+
 export interface ThoughtsConfig {
   thoughtsRepo: string
   reposDir: string // Directory name within thoughtsRepo (e.g., "repos")
   globalDir: string // Directory name within thoughtsRepo (e.g., "global")
   user: string
   repoMappings: Record<string, string>
+  contexts?: ThoughtsContext[] // New field
+  activeContext?: string // New field - name of active context
 }
 
 export function loadThoughtsConfig(options: Record<string, unknown> = {}): ThoughtsConfig | null {
@@ -35,6 +43,34 @@ export function expandPath(filePath: string): string {
     return path.join(os.homedir(), filePath.slice(2))
   }
   return path.resolve(filePath)
+}
+
+export function getActiveContext(config: ThoughtsConfig): ThoughtsContext | null {
+  if (!config.activeContext || !config.contexts) return null
+  return config.contexts.find(c => c.name === config.activeContext) || null
+}
+
+export function addContext(config: ThoughtsConfig, context: ThoughtsContext): void {
+  if (!config.contexts) config.contexts = []
+  const existing = config.contexts.findIndex(c => c.name === context.name)
+  if (existing >= 0) {
+    config.contexts[existing] = context
+  } else {
+    config.contexts.push(context)
+  }
+}
+
+export function removeContext(config: ThoughtsConfig, name: string): boolean {
+  if (!config.contexts) return false
+  const index = config.contexts.findIndex(c => c.name === name)
+  if (index >= 0) {
+    config.contexts.splice(index, 1)
+    if (config.activeContext === name) {
+      delete config.activeContext
+    }
+    return true
+  }
+  return false
 }
 
 export function ensureThoughtsRepoExists(
