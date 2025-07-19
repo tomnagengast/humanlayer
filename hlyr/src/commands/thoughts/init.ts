@@ -17,6 +17,7 @@ import {
   getRepoThoughtsPath,
   getGlobalThoughtsPath,
   updateSymlinksForNewUsers,
+  addContext,
 } from '../../thoughtsConfig.js'
 
 interface InitOptions {
@@ -621,6 +622,29 @@ export async function thoughtsInitCommand(options: InitOptions): Promise<void> {
       }
     } catch {
       // No remote configured, skip pull
+    }
+
+    // Check for existing remote and create default context if it exists
+    try {
+      const remoteUrl = execSync('git remote get-url origin', {
+        cwd: expandedRepo,
+        encoding: 'utf8',
+        stdio: 'pipe',
+      }).trim()
+
+      if (remoteUrl && !config.contexts?.find(c => c.name === 'default')) {
+        // Create default context for existing remote
+        addContext(config, {
+          name: 'default',
+          remoteUrl: remoteUrl,
+          remoteName: 'origin',
+        })
+        config.activeContext = 'default'
+        saveThoughtsConfig(config, options)
+        console.log(chalk.green('✓ Created default context from existing remote'))
+      }
+    } catch {
+      // No remote configured, skip context creation
     }
 
     // Generate CLAUDE.md

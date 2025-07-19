@@ -7,6 +7,8 @@ import {
   getCurrentRepoPath,
   expandPath,
   updateSymlinksForNewUsers,
+  getActiveContext,
+  ThoughtsConfig,
 } from '../../thoughtsConfig.js'
 
 interface SyncOptions {
@@ -27,8 +29,10 @@ function checkGitStatus(repoPath: string): boolean {
   }
 }
 
-function syncThoughts(thoughtsRepo: string, message: string): void {
-  const expandedRepo = expandPath(thoughtsRepo)
+function syncThoughts(config: ThoughtsConfig, message: string): void {
+  const expandedRepo = expandPath(config.thoughtsRepo)
+  const activeContext = getActiveContext(config)
+  const remoteName = activeContext?.remoteName || 'origin'
 
   try {
     // Stage all changes
@@ -49,7 +53,7 @@ function syncThoughts(thoughtsRepo: string, message: string): void {
 
     // Pull latest changes after committing (to avoid conflicts with staged changes)
     try {
-      execSync('git pull --rebase', {
+      execSync(`git pull --rebase ${remoteName}`, {
         stdio: 'pipe',
         cwd: expandedRepo,
       })
@@ -71,19 +75,35 @@ function syncThoughts(thoughtsRepo: string, message: string): void {
 
     // Check if remote exists and push any unpushed commits
     try {
-      execSync('git remote get-url origin', { cwd: expandedRepo, stdio: 'pipe' })
+      execSync(`git remote get-url ${remoteName}`, { cwd: expandedRepo, stdio: 'pipe' })
 
       // Try to push
       console.log(chalk.gray('Pushing to remote...'))
       try {
-        execSync('git push', { cwd: expandedRepo, stdio: 'pipe' })
+        execSync(`git push ${remoteName}`, { cwd: expandedRepo, stdio: 'pipe' })
         console.log(chalk.green('✅ Pushed to remote'))
       } catch {
         console.log(chalk.yellow('⚠️  Could not push to remote. You may need to push manually.'))
       }
     } catch {
       // No remote configured
-      console.log(chalk.yellow('ℹ️  No remote configured for thoughts repository'))
+      if (activeContext) {
+        console.log(
+          chalk.yellow(
+            `ℹ️  Remote '${remoteName}' not configured for active context '${activeContext.name}'`,
+          ),
+        )
+        console.log(
+          chalk.gray(`Configure it with: git remote add ${remoteName} ${activeContext.remoteUrl}`),
+        )
+      } else {
+        console.log(chalk.yellow('ℹ️  No active context or remote configured'))
+        console.log(
+          chalk.gray(
+            'Create a context with: humanlayer thoughts contexts create <name> --remote-url <url>',
+          ),
+        )
+      }
     }
   } catch (error) {
     console.error(chalk.red(`Error syncing thoughts: ${error}`))
@@ -231,7 +251,7 @@ export async function thoughtsSyncCommand(options: SyncOptions): Promise<void> {
 
     // Sync the thoughts repository
     console.log(chalk.blue('Syncing thoughts...'))
-    syncThoughts(config.thoughtsRepo, options.message || '')
+    syncThoughts(config, options.message || '')
   } catch (error) {
     console.error(chalk.red(`Error during thoughts sync: ${error}`))
     process.exit(1)
