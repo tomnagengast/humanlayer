@@ -4,6 +4,7 @@ import { thoughtsUninitCommand } from './thoughts/uninit.js'
 import { thoughtsSyncCommand } from './thoughts/sync.js'
 import { thoughtsStatusCommand } from './thoughts/status.js'
 import { thoughtsConfigCommand } from './thoughts/config.js'
+import { createContextsCommand } from './thoughts/contexts.js'
 
 export function thoughtsCommand(program: Command): void {
   const thoughts = program.command('thoughts').description('Manage developer thoughts and notes')
@@ -43,4 +44,6 @@ export function thoughtsCommand(program: Command): void {
     .option('--json', 'Output configuration as JSON')
     .option('--config-file <path>', 'Path to config file')
     .action(thoughtsConfigCommand)
+
+  thoughts.addCommand(createContextsCommand())
 }
